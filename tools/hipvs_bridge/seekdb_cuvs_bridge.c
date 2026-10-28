@@ -32,10 +32,14 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   dset.dl_tensor.shape = ds; dset.dl_tensor.strides = 0; dset.dl_tensor.byte_offset = 0;
 
   if (cuvsCagraIndexParamsCreate(&h->ip) != CUVS_SUCCESS) goto fail_res;
-  h->ip->build_algo = NN_DESCENT;
+  /* Iterative CAGRA search builds the graph by searching a growing CAGRA index
+   * instead of 100 NN-Descent rounds. Same degrees; on gfx1100 it is faster and
+   * reaches higher recall (100k x 128: 25.4s -> 18s, recall@100 0.997 -> 0.998;
+   * 100k x 256: 27.0s -> 23.9s, recall@100 0.985 -> 0.992). */
+  h->ip->build_algo = ITERATIVE_CAGRA_SEARCH;
   h->ip->graph_degree = 128;
   h->ip->intermediate_graph_degree = 256;
-  h->ip->nn_descent_niter = 100;
+  h->ip->nn_descent_niter = 100;  /* unused by ITERATIVE_CAGRA_SEARCH */
   if (cuvsCagraIndexCreate(&h->idx)      != CUVS_SUCCESS) goto fail_ip;
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS) goto fail_idx;
   h->n = n; h->dim = dim;
